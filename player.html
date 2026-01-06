@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Watch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="storage.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+body{margin:0;background:black;color:white;font-family:Arial}
+video{width:100%;max-height:60vh;background:black}
+.top{padding:10px;background:#000}
+.back{color:#ec4899;cursor:pointer}
+.container{padding:16px}
+.episodes{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,60px);gap:8px}
+.ep{
+  background:#18181b;
+  padding:8px;
+  text-align:center;
+  cursor:pointer;
+  border-radius:4px
+}
+.ep.active{background:#ec4899}
+.controls{margin-top:12px}
+button{
+  padding:10px 14px;
+  background:#22c55e;
+  border:none;
+  color:white;
+  border-radius:6px;
+  cursor:pointer
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="back" onclick="history.back()">← Kembali</span>
+</div>
+
+<video id="video" controls></video>
+
+<div class="container">
+  <h2 id="title"></h2>
+
+  <div class="controls">
+    <button onclick="prevEp()">◀ Prev</button>
+    <button onclick="nextEp()">Next ▶</button>
+  </div>
+
+  <div class="episodes" id="epList"></div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const animeId = params.get('id');
+let epNum = parseInt(params.get('ep')) || 1;
+
+const anime = getDB()[animeId];
+const video = document.getElementById('video');
+const title = document.getElementById('title');
+const epList = document.getElementById('epList');
+
+title.innerText = anime.title;
+
+function playEpisode(n){
+  epNum = n;
+  const episode = anime.episodes.find(e=>e.number==n);
+  if(!episode) return;
+
+  document.title = `${anime.title} Episode ${n}`;
+
+  if(Hls.isSupported()){
+    const hls = new Hls();
+    hls.loadSource(episode.video);
+    hls.attachMedia(video);
+  }else{
+    video.src = episode.video;
+  }
+
+  renderEpisodes();
+}
+
+function renderEpisodes(){
+  epList.innerHTML='';
+  anime.episodes.forEach(e=>{
+    epList.innerHTML += `
+      <div class="ep ${e.number==epNum?'active':''}"
+      onclick="playEpisode(${e.number})">
+      ${e.number}
+      </div>`;
+  });
+}
+
+function nextEp(){
+  playEpisode(epNum+1);
+}
+
+function prevEp(){
+  playEpisode(epNum-1);
+}
+
+playEpisode(epNum);
+</script>
+
+</body>
+</html>

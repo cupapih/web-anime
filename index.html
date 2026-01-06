@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>BStationX</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="storage.js"></script>
+<style>
+body{margin:0;background:#0f0f0f;color:#fff;font-family:Arial}
+.navbar{padding:16px;background:#18181b;display:flex;justify-content:space-between}
+.logo{color:#ec4899;font-size:22px;font-weight:bold}
+.grid{padding:24px;display:grid;grid-template-columns:repeat(auto-fill,160px);gap:16px}
+.card{background:#27272a;border-radius:8px;cursor:pointer}
+.card img{width:100%;height:230px;object-fit:cover}
+.info{padding:8px}
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="logo">BStationX</div>
+</div>
+
+<div class="grid" id="list"></div>
+
+<script>
+const list = document.getElementById('list');
+const data = getDB();
+
+if(data.length === 0){
+  list.innerHTML = '<p style="padding:24px">Belum ada anime. Jalankan scraper.</p>';
+}
+
+data.forEach((a,i)=>{
+  list.innerHTML += `
+    <div class="card" onclick="location.href='player.html?id=${i}&ep=1'"
+      <img src="${a.cover}">
+      <div class="info">
+        <b>${a.title}</b>
+        <div style="font-size:12px">${a.status}</div>
+      </div>
+    </div>`;
+});
+</script>
+
+</body>
+</html>

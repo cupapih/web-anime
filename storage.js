@@ -1,4 +1,3 @@
-<script>
 const DB_KEY = 'BSTATIONX_DB';
 
 function getDB(){
@@ -18,4 +17,4 @@ function addAnime(anime){
 function clearDB(){
   localStorage.removeItem(DB_KEY);
 }
-</script>
+

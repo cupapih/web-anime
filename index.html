@@ -25,21 +25,32 @@ body{margin:0;background:#0f0f0f;color:#fff;font-family:Arial}
 
 <script>
 const list = document.getElementById('list');
-const data = getDB();
 
-if(data.length === 0){
-  list.innerHTML = '<p style="padding:24px">Belum ada anime. Jalankan scraper.</p>';
+function renderList(){
+  const data = getDB();
+  if(!data || data.length === 0){
+    list.innerHTML = '<p style="padding:24px">Belum ada anime. Jalankan scraper.</p>';
+    return;
+  }
+
+  list.innerHTML = '';
+  data.forEach((a,i)=>{
+    list.innerHTML += `
+      <div class="card" onclick="location.href='player.html?id=${i}&ep=1'">
+        <img src="${a.cover}">
+        <div class="info">
+          <b>${a.title}</b>
+          <div style="font-size:12px">${a.status}</div>
+        </div>
+      </div>`;
+  });
 }
 
-data.forEach((a,i)=>{
-  list.innerHTML += `
-    <div class="card" onclick="location.href='player.html?id=${i}&ep=1'"
-      <img src="${a.cover}">
-      <div class="info">
-        <b>${a.title}</b>
-        <div style="font-size:12px">${a.status}</div>
-      </div>
-    </div>`;
+renderList();
+
+// Auto-refresh when another tab updates localStorage
+window.addEventListener('storage', (e) => {
+  if(e.key === 'BSTATIONX_DB') renderList();
 });
 </script>
 

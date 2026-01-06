@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Scraper</title>
 <script src="storage.js"></script>
+<script src="storage.js" defer></script>
 <style>
 body{background:#0f0f0f;color:white;font-family:Arial;padding:24px}
 button{padding:12px;background:#ec4899;border:none;color:white}
@@ -13,13 +14,18 @@ pre{background:black;padding:12px;margin-top:12px}
 <body>
 
 <h2>AniList Auto Scraper</h2>
-<button onclick="run()">RUN SCRAPER</button>
+<button id="runBtn" onclick="run()">RUN SCRAPER</button>
 <pre id="log"></pre>
 
 <script>
 const log = document.getElementById('log');
+const runBtn = document.getElementById('runBtn');
+let isRunning = false;
 
 async function run(){
+  if(isRunning) return;
+  isRunning = true;
+  runBtn.disabled = true;
   log.textContent = 'Fetching...';
 
   const query = `
@@ -35,23 +41,33 @@ async function run(){
     }
   }`;
 
-  const res = await fetch('https://graphql.anilist.co',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({query})
-  });
-
-  const json = await res.json();
-  json.data.Page.media.forEach(a => {
-    addAnime({
-      title: a.title.romaji,
-      cover: a.coverImage.large,
-      status: a.status,
-      episodes: [] // episode kosong, diisi admin
+  try {
+    const res = await fetch('https://graphql.anilist.co',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query})
     });
-  });
 
-  log.textContent = 'DONE ✓';
+    if(!res.ok) throw new Error(res.statusText || 'Network error');
+
+    const json = await res.json();
+    json.data.Page.media.forEach(a => {
+      addAnime({
+        title: a.title.romaji,
+        cover: a.coverImage.large,
+        status: a.status,
+        episodes: [] // episode kosong, diisi admin
+      });
+    });
+
+    log.textContent = 'DONE ✓';
+  } catch(err) {
+    console.error(err);
+    log.textContent = 'Error: ' + err.message;
+  } finally {
+    isRunning = false;
+    runBtn.disabled = false;
+  }
 }
 </script>
 

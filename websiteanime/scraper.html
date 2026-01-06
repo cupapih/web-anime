@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Scraper</title>
+<script src="storage.js"></script>
+<style>
+body{background:#0f0f0f;color:white;font-family:Arial;padding:24px}
+button{padding:12px;background:#ec4899;border:none;color:white}
+pre{background:black;padding:12px;margin-top:12px}
+</style>
+</head>
+<body>
+
+<h2>AniList Auto Scraper</h2>
+<button onclick="run()">RUN SCRAPER</button>
+<pre id="log"></pre>
+
+<script>
+async function run(){
+  log.textContent = 'Fetching...';
+
+  const query = `
+  query {
+    Page(perPage: 10) {
+      media(type: ANIME, sort: POPULARITY_DESC) {
+        title { romaji }
+        coverImage { large }
+        description
+        episodes
+        status
+      }
+    }
+  }`;
+
+  const res = await fetch('https://graphql.anilist.co',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({query})
+  });
+
+  const json = await res.json();
+  json.data.Page.media.forEach(a=>{
+ addAnime({
+  title: a.title.romaji,
+  cover: a.coverImage.large,
+  status: a.status,
+  episodes: [] // episode kosong, diisi admin
+});
+
+
+  log.textContent = 'DONE ✓';
+}
+</script>
+
+</body>
+</html>

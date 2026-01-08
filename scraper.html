@@ -2,78 +2,109 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Hidoristream Scraper - Fixed</title>
+    <title>BStationX - Pro Scraper 50</title>
     <script src="storage.js" defer></script>
     <style>
-        body{background:#0f0f0f;color:white;font-family:Arial;padding:24px}
-        button{padding:12px;background:#00b4d8;border:none;color:white;cursor:pointer;font-weight:bold;border-radius:4px}
+        body{background:#0f0f0f;color:white;font-family:Arial, sans-serif;padding:24px}
+        .header{display:flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ec4899; padding-bottom: 10px; margin-bottom: 20px;}
+        button{padding:12px 24px;background:#ec4899;border:none;color:white;cursor:pointer;font-weight:bold;border-radius:4px; transition: 0.3s;}
+        button:hover{background:#be185d; transform: scale(1.02);}
         button:disabled{background:#555;cursor:not-allowed}
-        pre{background:black;padding:12px;margin-top:12px;white-space: pre-wrap;word-wrap: break-word;border: 1px solid #333;font-size:12px;color: #adff2f}
+        pre{background:#000;padding:15px;margin-top:12px;border:1px solid #333;font-size:12px;color:#adff2f; height: 400px; overflow-y: auto; border-radius: 8px;}
+        .stats { font-size: 14px; color: #aaa; }
     </style>
 </head>
 <body>
 
-    <h2>Hidoristream Auto Sync (CORS Fixed)</h2>
-    <p>Status: Menggunakan Proxy untuk menembus blokir CORS.</p>
-    <button id="runBtn">SYNC SEKARANG</button>
-    <pre id="log">Siap...</pre>
+    <div class="header">
+        <h2>BStationX - Auto Sync (Top 50)</h2>
+        <div class="stats" id="statsText">Database: Menunggu...</div>
+    </div>
+
+    <p>Mengambil 50 anime terbaru yang sedang tayang atau baru saja diperbarui.</p>
+    <button id="runBtn">MULAISYNC 50 ANIME</button>
+    
+    <pre id="log">Status: Klik tombol di atas untuk sinkronisasi data.</pre>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const log = document.getElementById('log');
         const runBtn = document.getElementById('runBtn');
-        let isRunning = false;
+        const statsText = document.getElementById('statsText');
+
+        // Fungsi untuk update status jumlah data di storage
+        const updateStats = () => {
+            const db = typeof getDB === 'function' ? getDB() : [];
+            statsText.textContent = `Database: ${db.length} Anime tersimpan`;
+        };
+        updateStats();
 
         runBtn.addEventListener('click', async () => {
-            if(isRunning) return;
-            if (typeof addAnime !== 'function') return alert("storage.js belum siap!");
-
-            isRunning = true;
-            runBtn.disabled = true;
-            log.textContent = 'Menembus blokir CORS dan mengambil data...\n';
+            if(!confirm("Hapus data lama dan ambil 50 anime terbaru?")) return;
             
-            if(confirm("Hapus data lama sebelum update?")) clearDB();
+            runBtn.disabled = true;
+            log.textContent = '🚀 Memulai proses sinkronisasi...\n';
+            log.textContent += '🧹 Membersihkan database lama...\n';
+            
+            if (typeof clearDB === 'function') clearDB();
 
-            // Menggunakan Proxy gratis untuk menghindari error CORS
-            const proxy = 'https://api.allorigins.win/get?url=';
-            const targetUrl = encodeURIComponent('https://v1.hidoristream.online/api/anime/terbaru');
+            // QUERY: perPage diset ke 50, diurutkan berdasarkan UPDATED_AT_DESC (Terbaru update)
+            const query = `
+            query {
+              Page(perPage: 50) { 
+                media(type: ANIME, status_in: [RELEASING, FINISHED], sort: UPDATED_AT_DESC) {
+                  title { romaji, english }
+                  coverImage { large }
+                  status
+                  episodes
+                }
+              }
+            }`;
 
             try {
-                const response = await fetch(proxy + targetUrl);
-                if (!response.ok) throw new Error("Gagal menghubungi Proxy.");
-                
-                const rawData = await response.json();
-                // Data dari allorigins dibungkus dalam properti 'contents'
-                const result = JSON.parse(rawData.contents);
-
-                const listAnime = result.data || result;
-
-                if (!listAnime || listAnime.length === 0) {
-                    throw new Error("Data anime kosong atau struktur API berubah.");
-                }
-
-                listAnime.forEach((item, index) => {
-                    addAnime({
-                        title: item.title || "Unknown Title",
-                        cover: item.poster || item.thumbnail || "https://via.placeholder.com/300",
-                        status: item.status || "Ongoing",
-                        episodes: [
-                            {
-                                title: "Episode " + (item.last_episode || "Terbaru"),
-                                url: item.video_url || `https://v1.hidoristream.online/embed/${item.slug || ''}`
-                            }
-                        ]
-                    });
-                    log.textContent += `[OK] Berhasil: ${item.title}\n`;
+                log.textContent += '📡 Menghubungi Server AniList...\n';
+                const res = await fetch('https://graphql.anilist.co', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
                 });
 
-                log.textContent += '\n✓ BERHASIL! Silakan cek halaman utama.';
-            } catch (err) {
-                log.textContent += '\n[GAGAL] Masalah: ' + err.message;
-                log.textContent += '\nSaran: Pastikan link API Hidoristream masih aktif.';
-                console.error(err);
+                if(!res.ok) throw new Error("Gagal mengambil data dari server.");
+
+                const json = await res.json();
+                const animeList = json.data.Page.media;
+
+                animeList.forEach((a, index) => {
+                    const mainTitle = a.title.romaji || a.title.english;
+                    
+                    // Logic Video: Menggunakan pemutar multi-embed otomatis
+                    const videoUrl = `https://multiembed.mov/directstream.php?video_id=${encodeURIComponent(mainTitle)}&type=anime`;
+
+                    if (typeof addAnime === 'function') {
+                        addAnime({
+                            title: mainTitle,
+                            cover: a.coverImage.large,
+                            status: a.status === 'RELEASING' ? 'Ongoing' : 'Tamat',
+                            episodes: [
+                                { 
+                                    title: "Episode Terbaru", 
+                                    url: videoUrl 
+                                }
+                            ]
+                        });
+                    }
+                    
+                    log.textContent += `[${index + 1}] Berhasil Sync: ${mainTitle}\n`;
+                    // Auto scroll log ke bawah
+                    log.scrollTop = log.scrollHeight;
+                });
+
+                log.textContent += '\n✅ SELESAI! 50 Anime terbaru siap ditonton.';
+                updateStats();
+
+            } catch(err) {
+                log.textContent += `\n❌ ERROR: ${err.message}`;
             } finally {
-                isRunning = false;
                 runBtn.disabled = false;
             }
         });

@@ -2,8 +2,10 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>BStationX - Auto Sync Sub Indo</title>
-<script src="storage.js"></script>
+<title>BStationX - Manual Sync</title>
+
+<!-- PENTING: PATH EKSPLISIT -->
+<script src="./storage.js"></script>
 
 <style>
 body{
@@ -16,6 +18,7 @@ body{
   border-radius:20px;border:2px solid #ec4899;width:420px
 }
 .loader{
+  display:none;
   width:40px;height:40px;border:4px solid #333;
   border-top:4px solid #ec4899;border-radius:50%;
   animation:spin 1s linear infinite;margin:20px auto
@@ -26,7 +29,13 @@ body{
 }
 #log{
   font-size:12px;color:#aaa;margin-top:15px;
-  height:80px;overflow-y:auto;text-align:left
+  height:100px;overflow-y:auto;text-align:left
+}
+button{
+  background:#ec4899;color:#000;
+  border:none;padding:10px 18px;
+  font-weight:bold;border-radius:8px;
+  cursor:pointer
 }
 </style>
 </head>
@@ -35,23 +44,40 @@ body{
 
 <div class="sync-card">
   <div style="font-weight:bold;color:#ec4899;font-size:1.2rem">
-    100 ANIME SUB INDO SYNC
+    BStationX – Manual Sync
   </div>
-  <div class="loader"></div>
-  <div id="status">Mengambil data ongoing...</div>
-  <div id="log">Memulai sinkronisasi...</div>
+
+  <div class="loader" id="loader"></div>
+
+  <div id="status">Siap melakukan sinkronisasi</div>
+
+  <button onclick="startSync()">Mulai Sync</button>
+
+  <div id="log">Menunggu perintah...</div>
 </div>
 
 <script>
+/* === VALIDASI STORAGE (ANTI GAGAL) === */
+if (typeof clearDB !== "function" || typeof addAnime !== "function") {
+  document.getElementById("status").innerText =
+    "storage.js tidak ter-load";
+  throw new Error("storage.js missing");
+}
+
+/* === SYNC FUNCTION === */
 async function startSync() {
   const log = document.getElementById("log");
   const status = document.getElementById("status");
+  const loader = document.getElementById("loader");
+
+  loader.style.display = "block";
+  log.innerHTML = "";
+  status.innerText = "Menghapus data lama...";
+  clearDB();
+
+  let total = 0;
 
   try {
-    clearDB();
-    let totalGrabbed = 0;
-
-    // 5 halaman x ±20 anime = ±100
     for (let page = 1; page <= 5; page++) {
       status.innerText = `Mengambil halaman ${page}...`;
 
@@ -62,46 +88,46 @@ async function startSync() {
       const list = data?.animeList || [];
 
       for (const item of list) {
-        if (totalGrabbed >= 100) break;
+        if (total >= 100) break;
 
-        const slug = item.id;
         const episodes = [];
-
-        // Generate episode 1–24
         for (let i = 1; i <= 24; i++) {
           episodes.push({
             number: i,
-            video: `https://shironime.com/embed/${slug}-episode-${i}`
+            video: `https://shironime.com/embed/${item.id}-episode-${i}`
           });
         }
 
         addAnime({
           title: item.title,
           cover: item.thumb,
-          description: `Nonton ${item.title} Subtitle Indonesia. Update episode terbaru.`,
+          description: `Nonton ${item.title} Subtitle Indonesia.`,
           genres: ["Ongoing", "Sub Indo"],
           status: "Currently Airing",
           episodes
         });
 
-        totalGrabbed++;
+        total++;
         log.innerHTML =
           `✔ ${item.title}<br>` + log.innerHTML;
       }
     }
 
-    status.innerText = "Sinkronisasi Selesai ✔";
+    loader.style.display = "none";
+    status.innerText = `Selesai! ${total} anime tersimpan`;
+
+    console.log("DB FINAL:", getDB());
+
     setTimeout(() => {
       window.location.href = "index.html";
-    }, 2000);
+    }, 1500);
 
   } catch (e) {
-    status.innerText = "Gagal Sinkronisasi ❌";
-    log.innerText = "Error: " + e.message;
+    loader.style.display = "none";
+    status.innerText = "Gagal sinkronisasi";
+    log.innerText = e.message;
   }
 }
-
-window.onload = startSync;
 </script>
 
 </body>

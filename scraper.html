@@ -2,104 +2,95 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>BStationX - Mega Scraper Sub Indo</title>
-    <script src="storage.js" defer></script>
+    <title>BStationX - Auto Sync Hidoristream</title>
+    <script src="storage.js"></script>
     <style>
-        body{background:#0f0f0f;color:white;font-family:'Segoe UI',sans-serif;padding:30px}
-        .container{max-width:800px;margin:auto;background:#18181b;padding:25px;border-radius:15px;border:1px solid #333}
-        h2{color:#ec4899;margin-bottom:5px}
-        p{color:#888;font-size:14px;margin-bottom:20px}
-        button{width:100%;padding:15px;background:#ec4899;border:none;color:white;font-weight:bold;border-radius:8px;cursor:pointer;font-size:16px}
-        button:disabled{background:#555}
-        #log{background:#000;padding:15px;margin-top:20px;height:300px;overflow-y:auto;font-family:monospace;font-size:12px;color:#adff2f;border:1px solid #444;border-radius:8px}
-        .progress-box{margin-top:15px;display:flex;justify-content:space-between;font-size:13px;color:#ec4899}
+        body{background:#000;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+        .sync-box{text-align:center;background:#111;padding:40px;border-radius:20px;border:2px solid #ec4899;width:300px}
+        .loader {width:40px;height:40px;border:4px solid #333;border-top:4px solid #ec4899;border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        #log{font-size:12px;color:#666;margin-top:10px}
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Mega Sync Sub Indo</h2>
-    <p>Mengambil 100 anime terbaru (Prioritas Ongoing) dengan link video Sub Indo.</p>
-    
-    <button id="runBtn">SINKRONKAN 100 ANIME TERBARU</button>
-    
-    <div class="progress-box">
-        <span id="statusTxt">Status: Siap</span>
-        <span id="countTxt">Data: 0</span>
-    </div>
-
-    <pre id="log" style="display:none"></pre>
+<div class="sync-box">
+    <div style="font-weight:bold;color:#ec4899;margin-bottom:10px">HIDORISTREAM ENGINE</div>
+    <div class="loader"></div>
+    <div id="status">Sinkronisasi Video...</div>
+    <div id="log">Menghubungkan...</div>
 </div>
 
 <script>
+async function startSync() {
     const log = document.getElementById('log');
-    const runBtn = document.getElementById('runBtn');
-    const statusTxt = document.getElementById('statusTxt');
-    const countTxt = document.getElementById('countTxt');
+    const status = document.getElementById('status');
 
-    runBtn.addEventListener('click', async () => {
-        if(!confirm("Proses ini akan mengambil 100 anime. Lanjutkan?")) return;
+    try {
+        // Mengambil data HTML dari Hidoristream menggunakan Proxy CORS
+        const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://hidoristream.online/'));
+        const data = await response.json();
         
-        runBtn.disabled = true;
-        log.style.display = 'block';
-        log.textContent = 'Memulai sinkronisasi skala besar...\n';
-        clearDB();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(data.contents, 'text/html');
+        
+        // Mengambil daftar anime terbaru (selector disesuaikan dengan web anime)
+        const items = doc.querySelectorAll('.post-item, .item, article'); 
+        
+        if (items.length === 0) throw new Error("Gagal akses sumber.");
 
-        try {
-            // Ambil 2 halaman (total 50-100 anime) dari Jikan API (Top Anime Airing)
-            for (let page = 1; page <= 4; page++) { // 4 halaman x 25 = 100 anime
-                statusTxt.textContent = `Mengambil halaman ${page}...`;
+        clearDB(); // Reset data lama agar selalu fresh
+
+        items.forEach((el, index) => {
+            if(index >= 50) return; // Ambil 50 terbaru
+
+            const titleEl = el.querySelector('h2, h3, .title, .entry-title');
+            const imgEl = el.querySelector('img');
+            
+            if (titleEl) {
+                const title = titleEl.innerText.trim();
+                const cover = imgEl ? (imgEl.getAttribute('data-src') || imgEl.src) : '';
                 
-                const resp = await fetch(`https://api.jikan.moe/v4/seasons/now?page=${page}`);
-                const data = await resp.json();
+                // Membuat SLUG (Ujung link video)
+                const slug = title.toLowerCase()
+                    .replace(/[^\w\s-]/g, '')
+                    .trim()
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-');
 
-                for (const anime of data.data) {
-                    const title = anime.title;
-                    const cleanTitle = title.replace(/[^a-zA-Z0-9 ]/g, "");
-                    
-                    // Membuat daftar episode secara dinamis
-                    const totalEp = anime.episodes || 12;
-                    const episodes = [];
-
-                    for (let i = 1; i <= totalEp; i++) {
-                        // LOGIKA VIDEO SUB INDO:
-                        // Kita gunakan server khusus yang menyediakan player Sub Indo otomatis berdasarkan judul
-                        const videoUrl = `https://v1.hidoristream.online/embed/${cleanTitle.toLowerCase().replace(/ /g, "-")}-episode-${i}`;
-                        
-                        episodes.push({
-                            number: i,
-                            title: `Episode ${i} Sub Indo`,
-                            video: videoUrl
-                        });
-                    }
-
-                    addAnime({
-                        title: title,
-                        cover: anime.images.jpg.large_image_url,
-                        description: anime.synopsis || "Sinopsis tidak tersedia.",
-                        genres: anime.genres.map(g => g.name),
-                        status: anime.status, // Contoh: "Currently Airing"
-                        episodes: episodes
+                // Generate 24 Episode (Hidoristream akan otomatis menampilkan yang sudah rilis)
+                const episodes = [];
+                for (let i = 1; i <= 24; i++) {
+                    episodes.push({
+                        number: i,
+                        // LINK VIDEO LANGSUNG
+                        video: `https://v1.hidoristream.online/embed/${slug}-episode-${i}`
                     });
-
-                    log.textContent += `[OK] ${title} - ${episodes.length} Eps\n`;
-                    log.scrollTop = log.scrollHeight;
-                    countTxt.textContent = `Data: ${getDB().length}`;
                 }
-                
-                // Jeda 1 detik per halaman agar tidak terkena Rate Limit API
-                await new Promise(r => setTimeout(r, 1000));
-            }
 
-            log.textContent += '\n✅ SELESAI! 100 Anime berhasil disimpan.';
-            statusTxt.textContent = 'Status: Berhasil!';
-        } catch (err) {
-            log.textContent += '\n❌ Error: ' + err.message;
-            statusTxt.textContent = 'Status: Error';
-        } finally {
-            runBtn.disabled = false;
-        }
-    });
+                addAnime({
+                    title: title,
+                    cover: cover,
+                    description: "Nonton " + title + " Sub Indo terbaru di BStationX.",
+                    genres: ["Anime", "Sub Indo"],
+                    status: "Ongoing",
+                    episodes: episodes
+                });
+
+                log.innerText = `Menambahkan: ${title}`;
+            }
+        });
+
+        status.innerText = "Selesai!";
+        setTimeout(() => window.location.href = 'index.html', 1500);
+
+    } catch (err) {
+        status.innerText = "Gagal!";
+        log.innerText = "Mencoba kembali...";
+        setTimeout(startSync, 3000);
+    }
+}
+window.onload = startSync;
 </script>
 </body>
 </html>

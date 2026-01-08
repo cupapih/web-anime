@@ -2,55 +2,136 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>BStationX</title>
+<title>BStationX - Katalog Anime</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="storage.js"></script>
 <style>
-body{margin:0;background:#0f0f0f;color:#fff;font-family:Arial}
-.navbar{padding:16px;background:#18181b;display:flex;justify-content:space-between}
-.logo{color:#ec4899;font-size:22px;font-weight:bold}
-.grid{padding:24px;display:grid;grid-template-columns:repeat(auto-fill,160px);gap:16px}
-.card{background:#27272a;border-radius:8px;cursor:pointer}
-.card img{width:100%;height:230px;object-fit:cover}
-.info{padding:8px}
+  :root { --primary: #ec4899; --bg: #0f0f0f; --card-bg: #18181b; }
+  body { margin:0; background: var(--bg); color:#fff; font-family: 'Segoe UI', Arial, sans-serif; }
+  
+  .navbar { 
+    padding: 16px 24px; background: var(--card-bg); 
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  }
+  .logo { color: var(--primary); font-size: 24px; font-weight: bold; letter-spacing: 1px; }
+  
+  /* Filter Genre Styling */
+  .filter-container {
+    padding: 15px 24px; display: flex; gap: 10px; overflow-x: auto;
+    white-space: nowrap; scrollbar-width: none;
+  }
+  .filter-container::-webkit-scrollbar { display: none; }
+  .chip {
+    padding: 6px 16px; background: #27272a; border-radius: 20px;
+    font-size: 13px; cursor: pointer; transition: 0.3s; border: 1px solid transparent;
+  }
+  .chip:hover { border-color: var(--primary); }
+  .chip.active { background: var(--primary); color: #fff; }
+
+  .grid { 
+    padding: 24px; display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; 
+  }
+  
+  .card { 
+    background: var(--card-bg); border-radius: 12px; overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s; border: 1px solid #27272a;
+  }
+  .card:hover { 
+    transform: translateY(-8px); 
+    box-shadow: 0 10px 20px rgba(236, 72, 153, 0.2);
+    border-color: var(--primary);
+  }
+  .card img { width: 100%; height: 220px; object-fit: cover; }
+  
+  .info { padding: 12px; }
+  .title { 
+    font-size: 14px; font-weight: bold; margin-bottom: 4px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; height: 38px;
+  }
+  .genre-label { font-size: 11px; color: var(--primary); font-weight: 500; }
 </style>
 </head>
 <body>
 
 <div class="navbar">
   <div class="logo">BStationX</div>
+  <div style="font-size: 12px; color: #888;" id="stats">0 Anime</div>
+</div>
+
+<div class="filter-container" id="filterList">
+  <div class="chip active" onclick="filterGenre('All', this)">Semua</div>
 </div>
 
 <div class="grid" id="list"></div>
 
 <script>
-const list = document.getElementById('list');
+const listElement = document.getElementById('list');
+const filterList = document.getElementById('filterList');
 
-function renderList(){
+function renderUI(filter = 'All') {
+  // Mengambil data dari KV Storage
   const data = getDB();
+  
   if(!data || data.length === 0){
-    list.innerHTML = '<p style="padding:24px">Belum ada anime. Jalankan scraper.</p>';
+    listElement.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 50px; color: #888;">
+        <p>Database kosong.</p>
+        <button onclick="location.href='sync.html'" style="background:#ec4899; color:#fff; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">Jalankan Scraper</button>
+      </div>`;
     return;
   }
 
-  list.innerHTML = '';
-  data.forEach((a,i)=>{
-    list.innerHTML += `
-      <div class="card" onclick="location.href='player.html?id=${i}&ep=1'">
-        <img src="${a.cover}">
+  document.getElementById('stats').innerText = `${data.length} Anime`;
+
+  // Render Card
+  let html = '';
+  data.forEach((anime) => {
+    // Logika Filter
+    if(filter !== 'All' && !anime.genres.includes(filter)) return;
+
+    html += `
+      <div class="card" onclick="location.href='player.html?slug=${anime.slug}&ep=1'">
+        <img src="${anime.cover}" alt="${anime.title}" loading="lazy">
         <div class="info">
-          <b>${a.title}</b>
-          <div style="font-size:12px">${a.status}</div>
+          <div class="genre-label">${anime.genres[0] || 'Anime'}</div>
+          <div class="title">${anime.title}</div>
         </div>
       </div>`;
   });
+  listElement.innerHTML = html;
 }
 
-renderList();
+// Inisialisasi Filter Genre
+function loadFilters() {
+  const genres = getAllGenres();
+  genres.forEach(genre => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerText = genre;
+    chip.onclick = (e) => filterGenre(genre, chip);
+    filterList.appendChild(chip);
+  });
+}
 
-// Auto-refresh when another tab updates localStorage
-window.addEventListener('storage', (e) => {
-  if(e.key === 'BSTATIONX_DB') renderList();
+function filterGenre(genre, element) {
+  // Reset active state
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  element.classList.add('active');
+  
+  // Render ulang list
+  renderUI(genre);
+}
+
+// Jalankan saat load
+loadFilters();
+renderUI();
+
+// Pantau perubahan database (jika sinkronisasi dilakukan di tab lain)
+window.addEventListener('storage', () => {
+  renderUI();
 });
 </script>
 

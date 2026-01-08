@@ -1,134 +1,75 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>BStationX - Manual Sync</title>
-
-<!-- PENTING: PATH EKSPLISIT -->
-<script src="./storage.js"></script>
-
-<style>
-body{
-  background:#000;color:#fff;font-family:sans-serif;
-  display:flex;justify-content:center;align-items:center;
-  height:100vh;margin:0
-}
-.sync-card{
-  text-align:center;background:#111;padding:40px;
-  border-radius:20px;border:2px solid #ec4899;width:420px
-}
-.loader{
-  display:none;
-  width:40px;height:40px;border:4px solid #333;
-  border-top:4px solid #ec4899;border-radius:50%;
-  animation:spin 1s linear infinite;margin:20px auto
-}
-@keyframes spin{
-  0%{transform:rotate(0deg)}
-  100%{transform:rotate(360deg)}
-}
-#log{
-  font-size:12px;color:#aaa;margin-top:15px;
-  height:100px;overflow-y:auto;text-align:left
-}
-button{
-  background:#ec4899;color:#000;
-  border:none;padding:10px 18px;
-  font-weight:bold;border-radius:8px;
-  cursor:pointer
-}
-</style>
+    <meta charset="UTF-8">
+    <title>BStationX - KV Sync</title>
+    <script src="storage.js"></script>
+    <style>
+        body { background:#000; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+        .box { background:#111; padding:30px; border-radius:15px; border:1px solid #ec4899; width:380px; text-align:center; }
+        #log { height:150px; overflow-y:auto; background:#050505; color:#888; font-size:11px; padding:10px; margin:15px 0; border-radius:8px; text-align:left; }
+        button { background:#ec4899; color:#fff; border:none; padding:12px 25px; border-radius:8px; cursor:pointer; font-weight:bold; }
+        .loader { display:none; width:25px; height:25px; border:3px solid #333; border-top:3px solid #ec4899; border-radius:50%; animation:spin 1s linear infinite; margin:10px auto; }
+        @keyframes spin { 100% { transform:rotate(360deg); } }
+    </style>
 </head>
-
 <body>
-
-<div class="sync-card">
-  <div style="font-weight:bold;color:#ec4899;font-size:1.2rem">
-    BStationX – Manual Sync
-  </div>
-
-  <div class="loader" id="loader"></div>
-
-  <div id="status">Siap melakukan sinkronisasi</div>
-
-  <button onclick="startSync()">Mulai Sync</button>
-
-  <div id="log">Menunggu perintah...</div>
-</div>
+    <div class="box">
+        <h2 style="color:#ec4899; margin:0">KV Sync Engine</h2>
+        <p id="status">Database Kosong</p>
+        <div class="loader" id="loader"></div>
+        <div id="log">Siap sinkronisasi 100 data...</div>
+        <button id="btn" onclick="startSync()">START SYNC</button>
+    </div>
 
 <script>
-/* === VALIDASI STORAGE (ANTI GAGAL) === */
-if (typeof clearDB !== "function" || typeof addAnime !== "function") {
-  document.getElementById("status").innerText =
-    "storage.js tidak ter-load";
-  throw new Error("storage.js missing");
-}
-
-/* === SYNC FUNCTION === */
 async function startSync() {
-  const log = document.getElementById("log");
-  const status = document.getElementById("status");
-  const loader = document.getElementById("loader");
+    const btn = document.getElementById('btn');
+    const log = document.getElementById('log');
+    const loader = document.getElementById('loader');
+    
+    btn.style.display = 'none';
+    loader.style.display = 'block';
+    clearDB();
 
-  loader.style.display = "block";
-  log.innerHTML = "";
-  status.innerText = "Menghapus data lama...";
-  clearDB();
+    try {
+        const api = `https://api.bilibili.tv/intl/gateway/web/v2/ogv/index/items?season_type=1&page=1&page_size=100`;
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(api)}`);
+        const json = await res.json();
+        const items = JSON.parse(json.contents).data.items;
 
-  let total = 0;
+        items.forEach((item, i) => {
+            const genres = item.styles ? item.styles.map(s => s.name) : ["Ongoing"];
+            
+            // Logika Embed Otomatis
+            const slug = item.title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+            const episodes = [];
+            for(let e=1; e<=12; e++) {
+                episodes.push({ num: e, url: `https://shironime.com/embed/${slug}-episode-${e}` });
+            }
 
-  try {
-    for (let page = 1; page <= 5; page++) {
-      status.innerText = `Mengambil halaman ${page}...`;
+            // SIMPAN KE KV
+            saveToKV({
+                slug: slug,
+                title: item.title,
+                cover: item.cover,
+                genres: genres,
+                desc: item.evaluate || `Nonton ${item.title} Sub Indo.`,
+                episodes: episodes
+            });
 
-      const res = await fetch(`/api/ongoing?page=${page}`);
-      if (!res.ok) throw new Error("API error");
-
-      const data = await res.json();
-      const list = data?.animeList || [];
-
-      for (const item of list) {
-        if (total >= 100) break;
-
-        const episodes = [];
-        for (let i = 1; i <= 24; i++) {
-          episodes.push({
-            number: i,
-            video: `https://shironime.com/embed/${item.id}-episode-${i}`
-          });
-        }
-
-        addAnime({
-          title: item.title,
-          cover: item.thumb,
-          description: `Nonton ${item.title} Subtitle Indonesia.`,
-          genres: ["Ongoing", "Sub Indo"],
-          status: "Currently Airing",
-          episodes
+            log.innerHTML = `[${i+1}] KV_STORE: ${slug}<br>` + log.innerHTML;
+            document.getElementById('status').innerText = `Tersimpan: ${i+1}/100`;
         });
 
-        total++;
-        log.innerHTML =
-          `✔ ${item.title}<br>` + log.innerHTML;
-      }
+        log.innerHTML = "<b>SYNC SELESAI!</b><br>" + log.innerHTML;
+        setTimeout(() => window.location.href = 'index.html', 1500);
+
+    } catch (e) {
+        log.innerHTML = "ERROR: " + e.message;
+        btn.style.display = 'block';
     }
-
-    loader.style.display = "none";
-    status.innerText = `Selesai! ${total} anime tersimpan`;
-
-    console.log("DB FINAL:", getDB());
-
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 1500);
-
-  } catch (e) {
-    loader.style.display = "none";
-    status.innerText = "Gagal sinkronisasi";
-    log.innerText = e.message;
-  }
 }
 </script>
-
 </body>
 </html>

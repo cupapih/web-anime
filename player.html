@@ -11,7 +11,7 @@
     .top{padding:15px;background:#111;display:flex;justify-content:space-between;align-items:center}
     .back{color:#ec4899;cursor:pointer;text-decoration:none;font-weight:bold}
     
-    /* Video Wrapper */
+    /* Video Wrapper agar Responsif */
     .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; background: #000; }
     .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
     
@@ -19,24 +19,26 @@
     .anime-info { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 20px; }
     .title{font-size:24px; color:#ec4899; margin: 0 0 10px 0;}
     .genre { color: #aaa; font-size: 14px; margin-bottom: 10px; }
-    .synopsis { font-size: 15px; color: #ccc; line-height: 1.6; background: #111; padding: 15px; border-radius: 8px; }
+    .synopsis { font-size: 15px; color: #ccc; line-height: 1.6; background: #111; padding: 15px; border-radius: 8px; max-height: 200px; overflow-y: auto;}
 
-    .controls{margin: 20px 0; display: flex; gap: 10px; align-items: center;}
+    .controls{margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
     .btn-nav { padding:10px 20px; background:#333; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold;}
     .btn-nav:hover { background: #444; }
-    .btn-download { padding:10px 20px; background:#ec4899; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold; text-decoration: none; display: inline-block;}
+    .btn-download { padding:10px 20px; background:#22c55e; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold; text-decoration: none; display: inline-block;}
+    .btn-download:hover { background: #16a34a; }
     
-    .episodes-label { font-weight: bold; margin-bottom: 10px; display: block; }
+    .episodes-label { font-weight: bold; margin-bottom: 10px; display: block; color: #ec4899;}
     .episodes{display:grid;grid-template-columns:repeat(auto-fill, minmax(60px, 1fr));gap:10px}
-    .ep{ background:#18181b; padding:12px; text-align:center; cursor:pointer; border-radius:4px; border: 1px solid #333; }
-    .ep.active{background:#ec4899; border-color: #ec4899;}
+    .ep{ background:#18181b; padding:12px; text-align:center; cursor:pointer; border-radius:4px; border: 1px solid #333; transition: 0.2s;}
+    .ep.active{background:#ec4899; border-color: #ec4899; font-weight: bold;}
+    .ep:hover { border-color: #ec4899; }
 </style>
 </head>
 <body>
 
 <div class="top">
     <a class="back" href="index.html">← Kembali ke Beranda</a>
-    <div id="animeInfoSmall" style="font-size: 12px; color: #888;"></div>
+    <div id="statusTag" style="font-size: 12px; padding: 4px 8px; background: #ec4899; border-radius: 4px; font-weight: bold;">ONGOING</div>
 </div>
 
 <div class="video-wrapper">
@@ -45,61 +47,70 @@
 
 <div class="container">
     <div class="anime-info">
-        <h2 class="title" id="title"></h2>
-        <div class="genre" id="genres"></div>
-        <div class="synopsis" id="synopsis"></div>
+        <h2 class="title" id="title">Memuat Judul...</h2>
+        <div class="genre" id="genres">Genre: -</div>
+        <div class="synopsis" id="synopsis">Sinopsis sedang dimuat...</div>
     </div>
 
     <div class="controls">
         <button class="btn-nav" onclick="prevEp()">◀ Prev</button>
         <button class="btn-nav" onclick="nextEp()">Next ▶</button>
-        <a id="downloadBtn" class="btn-download" target="_blank">📥 Download Video</a>
+        <a id="downloadBtn" class="btn-download" target="_blank">📥 Download / Pilih Resolusi</a>
     </div>
 
-    <span class="episodes-label">Daftar Episode:</span>
+    <span class="episodes-label">Pilih Episode Sub Indo:</span>
     <div class="episodes" id="epList"></div>
 </div>
 
 <script>
 const params = new URLSearchParams(location.search);
-const animeId = params.get('id'); // ID adalah index array di database
+const animeId = params.get('id'); 
 let epNum = parseInt(params.get('ep')) || 1;
 
 const db = getDB();
 const anime = db[animeId];
 
+// Validasi jika data tidak ditemukan
 if(!anime) {
-    alert("Anime tidak ditemukan!");
+    alert("Maaf, data anime tidak ditemukan di database lokal.");
     location.href = 'index.html';
 }
 
-// Elemen UI
 const player = document.getElementById('videoPlayer');
 const downloadBtn = document.getElementById('downloadBtn');
 
-// Tampilkan Data Anime
+// Isi Data Statis
 document.getElementById('title').innerText = anime.title;
-document.getElementById('genres').innerText = "Genre: " + (anime.genres ? anime.genres.join(", ") : "-");
-document.getElementById('synopsis').innerHTML = anime.description || "Tidak ada sinopsis.";
+document.getElementById('genres').innerText = "Genre: " + (anime.genres && anime.genres.length ? anime.genres.join(", ") : "Action, Adventure");
+document.getElementById('synopsis').innerHTML = anime.description || "Tidak ada sinopsis untuk anime ini.";
+document.getElementById('statusTag').innerText = anime.status === 'Currently Airing' ? 'ONGOING' : 'TAMAT';
 
 function playEpisode(n){
-    // Cari data episode
-    const episode = anime.episodes.find(e => e.number == n) || anime.episodes[0];
-    if(!episode) return;
+    // Cari episode berdasarkan nomor
+    const episode = anime.episodes.find(e => e.number == n);
+    
+    if(!episode) {
+        console.log("Episode belum tersedia.");
+        return;
+    }
 
     epNum = n;
-    document.title = `Nonton ${anime.title} - Episode ${n}`;
+    document.title = `Nonton ${anime.title} Episode ${n} Sub Indo`;
     
-    // Set Video & Download Link
+    // Update src iframe dan link download
     player.src = episode.video;
-    downloadBtn.href = episode.video; // Link download diarahkan ke source video
+    downloadBtn.href = episode.video; 
 
     renderEpisodes();
+    
+    // Auto-scroll ke atas saat ganti episode di HP
+    if(window.innerWidth < 768) window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 function renderEpisodes(){
     const epList = document.getElementById('epList');
     epList.innerHTML='';
+    
     anime.episodes.forEach(e => {
         const div = document.createElement('div');
         div.className = `ep ${e.number == epNum ? 'active' : ''}`;
@@ -109,10 +120,16 @@ function renderEpisodes(){
     });
 }
 
-function nextEp(){ if(epNum < anime.episodes.length) playEpisode(epNum + 1); }
-function prevEp(){ if(epNum > 1) playEpisode(epNum - 1); }
+function nextEp(){ 
+    if(epNum < anime.episodes.length) playEpisode(epNum + 1); 
+    else alert("Ini adalah episode terbaru.");
+}
 
-// Jalankan saat load
+function prevEp(){ 
+    if(epNum > 1) playEpisode(epNum - 1); 
+}
+
+// Inisialisasi saat pertama kali buka
 playEpisode(epNum);
 </script>
 

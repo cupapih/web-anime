@@ -1,82 +1,108 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <title>BStationX - Auto Sync Sub Indo</title>
-    <script src="storage.js"></script>
-    <style>
-        body{background:#000;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-        .sync-card{text-align:center;background:#111;padding:40px;border-radius:20px;border:2px solid #ec4899;width:400px}
-        .loader{width:40px;height:40px;border:4px solid #333;border-top:4px solid #ec4899;border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}
-        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-        #log{font-size:12px;color:#666;margin-top:15px;height:50px;overflow-y:auto}
-    </style>
+<meta charset="UTF-8">
+<title>BStationX - Auto Sync Sub Indo</title>
+<script src="storage.js"></script>
+
+<style>
+body{
+  background:#000;color:#fff;font-family:sans-serif;
+  display:flex;justify-content:center;align-items:center;
+  height:100vh;margin:0
+}
+.sync-card{
+  text-align:center;background:#111;padding:40px;
+  border-radius:20px;border:2px solid #ec4899;width:420px
+}
+.loader{
+  width:40px;height:40px;border:4px solid #333;
+  border-top:4px solid #ec4899;border-radius:50%;
+  animation:spin 1s linear infinite;margin:20px auto
+}
+@keyframes spin{
+  0%{transform:rotate(0deg)}
+  100%{transform:rotate(360deg)}
+}
+#log{
+  font-size:12px;color:#aaa;margin-top:15px;
+  height:80px;overflow-y:auto;text-align:left
+}
+</style>
 </head>
+
 <body>
 
 <div class="sync-card">
-    <div style="font-weight:bold;color:#ec4899;font-size:1.2rem">100 ANIME SUB INDO SYNC</div>
-    <div class="loader"></div>
-    <div id="status">Mengambil Data Ongoing...</div>
-    <div id="log">Memulai sinkronisasi...</div>
+  <div style="font-weight:bold;color:#ec4899;font-size:1.2rem">
+    100 ANIME SUB INDO SYNC
+  </div>
+  <div class="loader"></div>
+  <div id="status">Mengambil data ongoing...</div>
+  <div id="log">Memulai sinkronisasi...</div>
 </div>
 
 <script>
 async function startSync() {
-    const log = document.getElementById('log');
-    const status = document.getElementById('status');
+  const log = document.getElementById("log");
+  const status = document.getElementById("status");
 
-    try {
-        clearDB(); // Reset data lama
-        let totalGrabbed = 0;
+  try {
+    clearDB();
+    let totalGrabbed = 0;
 
-        // Kita ambil dari 5 halaman (20 anime per halaman = 100 anime)
-        for (let page = 1; page <= 5; page++) {
-            status.innerText = `Mengambil Halaman ${page}...`;
-            
-            // API untuk Anime Ongoing Sub Indo
-            const res = await fetch(`https://otakudesu-api.vercel.app/api/ongoing/${page}`);
-            const data = await res.json();
+    // 5 halaman x ±20 anime = ±100
+    for (let page = 1; page <= 5; page++) {
+      status.innerText = `Mengambil halaman ${page}...`;
 
-            for (const item of data.animeList) {
-                if (totalGrabbed >= 100) break;
+      const res = await fetch(`/api/ongoing?page=${page}`);
+      if (!res.ok) throw new Error("API error");
 
-                // Membuat slug link video yang stabil
-                const slug = item.id; 
-                const episodes = [];
-                
-                // Secara otomatis membuat 12-24 episode berdasarkan data terbaru
-                for (let i = 1; i <= 24; i++) {
-                    episodes.push({
-                        number: i,
-                        // Link embed video murni yang mendukung Sub Indo
-                        video: `https://shironime.com/embed/${slug}-episode-${i}`
-                    });
-                }
+      const data = await res.json();
+      const list = data?.animeList || [];
 
-                addAnime({
-                    title: item.title,
-                    cover: item.thumb,
-                    description: `Nonton ${item.title} Subtitle Indonesia gratis. Update episode terbaru setiap minggu.`,
-                    genres: ["Ongoing", "Sub Indo"],
-                    status: "Currently Airing",
-                    episodes: episodes
-                });
+      for (const item of list) {
+        if (totalGrabbed >= 100) break;
 
-                totalGrabbed++;
-                log.innerHTML = `Success: ${item.title}<br>` + log.innerHTML;
-            }
+        const slug = item.id;
+        const episodes = [];
+
+        // Generate episode 1–24
+        for (let i = 1; i <= 24; i++) {
+          episodes.push({
+            number: i,
+            video: `https://shironime.com/embed/${slug}-episode-${i}`
+          });
         }
 
-        status.innerText = "100 Anime Berhasil Disimpan!";
-        setTimeout(() => window.location.href = 'index.html', 2000);
+        addAnime({
+          title: item.title,
+          cover: item.thumb,
+          description: `Nonton ${item.title} Subtitle Indonesia. Update episode terbaru.`,
+          genres: ["Ongoing", "Sub Indo"],
+          status: "Currently Airing",
+          episodes
+        });
 
-    } catch (e) {
-        status.innerText = "Gagal Sinkronisasi";
-        log.innerText = "Error: " + e.message;
+        totalGrabbed++;
+        log.innerHTML =
+          `✔ ${item.title}<br>` + log.innerHTML;
+      }
     }
+
+    status.innerText = "Sinkronisasi Selesai ✔";
+    setTimeout(() => {
+      window.location.href = "index.html";
+    }, 2000);
+
+  } catch (e) {
+    status.innerText = "Gagal Sinkronisasi ❌";
+    log.innerText = "Error: " + e.message;
+  }
 }
+
 window.onload = startSync;
 </script>
+
 </body>
 </html>

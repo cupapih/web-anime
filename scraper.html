@@ -2,20 +2,21 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Scraper</title>
+    <title>Hidoristream Scraper</title>
     <script src="storage.js" defer></script>
     <style>
         body{background:#0f0f0f;color:white;font-family:Arial;padding:24px}
-        button{padding:12px;background:#ec4899;border:none;color:white;cursor:pointer;font-weight:bold}
+        button{padding:12px;background:#00b4d8;border:none;color:white;cursor:pointer;font-weight:bold;border-radius:4px}
         button:disabled{background:#555;cursor:not-allowed}
-        pre{background:black;padding:12px;margin-top:12px;white-space: pre-wrap;word-wrap: break-word;border: 1px solid #333}
+        pre{background:black;padding:12px;margin-top:12px;white-space: pre-wrap;word-wrap: break-word;border: 1px solid #333;font-size:12px;color: #adff2f}
     </style>
 </head>
 <body>
 
-    <h2>AniList Auto Scraper</h2>
-    <button id="runBtn">RUN SCRAPER (SYNC DATA)</button>
-    <pre id="log">Siap melakukan scraping...</pre>
+    <h2>Hidoristream Auto Sync</h2>
+    <p>Mengambil anime terbaru langsung dengan link video yang bisa diputar.</p>
+    <button id="runBtn">SYNC SEKARANG</button>
+    <pre id="log">Status: Menunggu...</pre>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -25,66 +26,44 @@
 
         runBtn.addEventListener('click', async () => {
             if(isRunning) return;
-
-            // Memastikan fungsi dari storage.js sudah terbaca
-            if (typeof clearDB !== 'function' || typeof addAnime !== 'function') {
-                log.textContent = 'Error: storage.js belum dimuat. Refresh halaman (Ctrl+F5).';
-                return;
-            }
-
-            // 1. SOLUSI BIAR TIDAK DOUBLE: Hapus data lama sebelum isi baru
-            if(!confirm("Hapus daftar lama dan ambil data terbaru?")) return;
+            if (typeof addAnime !== 'function') return alert("storage.js belum siap!");
 
             isRunning = true;
             runBtn.disabled = true;
-            log.textContent = 'Membersihkan database lama...\n';
-            clearDB(); // Menghapus data di localStorage agar tidak menumpuk
-
-            log.textContent += 'Mengambil data dari AniList...\n';
-
-            const query = `
-            query {
-              Page(perPage: 12) {
-                media(type: ANIME, sort: POPULARITY_DESC) {
-                  title { romaji }
-                  coverImage { large }
-                  status
-                }
-              }
-            }`;
+            log.textContent = 'Memulai proses scraping dari Hidoristream...\n';
+            
+            // Opsional: Hapus data lama agar tidak double
+            if(confirm("Hapus data lama?")) clearDB();
 
             try {
-                const res = await fetch('https://graphql.anilist.co',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({query})
-                });
+                // Mengambil data dari API Hidoristream (Endpoint Anime Terbaru)
+                const response = await fetch('https://v1.hidoristream.online/api/anime/terbaru');
+                const result = await response.json();
 
-                if(!res.ok) throw new Error('Gagal terhubung ke AniList');
+                // Asumsi struktur data Hidoristream adalah result.data atau result
+                const listAnime = result.data || result;
 
-                const json = await res.json();
-                const animeList = json.data.Page.media;
-
-                animeList.forEach((a, index) => {
-                    // 2. SOLUSI BIAR BISA DI-PLAY: Mengisi array episodes
-                    // AniList tidak punya video, jadi kita beri link contoh (dummy) dulu
+                listAnime.forEach((item, index) => {
+                    // Mapping data dari Hidoristream ke format database kamu
                     addAnime({
-                        title: a.title.romaji,
-                        cover: a.coverImage.large,
-                        status: a.status,
+                        title: item.title,
+                        cover: item.poster || item.thumbnail,
+                        status: item.status || "Ongoing",
                         episodes: [
-                            { 
-                                title: "Episode 01", 
-                                url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" 
+                            {
+                                title: "Episode " + (item.last_episode || "1"),
+                                // Mengambil link video langsung dari API mereka
+                                url: item.video_url || `https://v1.hidoristream.online/embed/${item.slug}`
                             }
                         ]
                     });
-                    log.textContent += `[${index + 1}] Berhasil: ${a.title.romaji}\n`;
+                    log.textContent += `[OK] Berhasil menarik: ${item.title}\n`;
                 });
 
-                log.textContent += '\nSELESAI ✓ Cek halaman utama.';
-            } catch(err) {
-                log.textContent = 'Error: ' + err.message;
+                log.textContent += '\n✓ SELESAI! Video sekarang sesuai dengan Hidoristream.';
+            } catch (err) {
+                log.textContent += '\n[ERROR] Gagal mengambil data: ' + err.message;
+                console.error(err);
             } finally {
                 isRunning = false;
                 runBtn.disabled = false;

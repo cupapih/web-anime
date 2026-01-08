@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Hidoristream Scraper</title>
+    <title>Hidoristream Scraper - Fixed</title>
     <script src="storage.js" defer></script>
     <style>
         body{background:#0f0f0f;color:white;font-family:Arial;padding:24px}
@@ -13,10 +13,10 @@
 </head>
 <body>
 
-    <h2>Hidoristream Auto Sync</h2>
-    <p>Mengambil anime terbaru langsung dengan link video yang bisa diputar.</p>
+    <h2>Hidoristream Auto Sync (CORS Fixed)</h2>
+    <p>Status: Menggunakan Proxy untuk menembus blokir CORS.</p>
     <button id="runBtn">SYNC SEKARANG</button>
-    <pre id="log">Status: Menunggu...</pre>
+    <pre id="log">Siap...</pre>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -30,39 +30,47 @@
 
             isRunning = true;
             runBtn.disabled = true;
-            log.textContent = 'Memulai proses scraping dari Hidoristream...\n';
+            log.textContent = 'Menembus blokir CORS dan mengambil data...\n';
             
-            // Opsional: Hapus data lama agar tidak double
-            if(confirm("Hapus data lama?")) clearDB();
+            if(confirm("Hapus data lama sebelum update?")) clearDB();
+
+            // Menggunakan Proxy gratis untuk menghindari error CORS
+            const proxy = 'https://api.allorigins.win/get?url=';
+            const targetUrl = encodeURIComponent('https://v1.hidoristream.online/api/anime/terbaru');
 
             try {
-                // Mengambil data dari API Hidoristream (Endpoint Anime Terbaru)
-                const response = await fetch('https://v1.hidoristream.online/api/anime/terbaru');
-                const result = await response.json();
+                const response = await fetch(proxy + targetUrl);
+                if (!response.ok) throw new Error("Gagal menghubungi Proxy.");
+                
+                const rawData = await response.json();
+                // Data dari allorigins dibungkus dalam properti 'contents'
+                const result = JSON.parse(rawData.contents);
 
-                // Asumsi struktur data Hidoristream adalah result.data atau result
                 const listAnime = result.data || result;
 
+                if (!listAnime || listAnime.length === 0) {
+                    throw new Error("Data anime kosong atau struktur API berubah.");
+                }
+
                 listAnime.forEach((item, index) => {
-                    // Mapping data dari Hidoristream ke format database kamu
                     addAnime({
-                        title: item.title,
-                        cover: item.poster || item.thumbnail,
+                        title: item.title || "Unknown Title",
+                        cover: item.poster || item.thumbnail || "https://via.placeholder.com/300",
                         status: item.status || "Ongoing",
                         episodes: [
                             {
-                                title: "Episode " + (item.last_episode || "1"),
-                                // Mengambil link video langsung dari API mereka
-                                url: item.video_url || `https://v1.hidoristream.online/embed/${item.slug}`
+                                title: "Episode " + (item.last_episode || "Terbaru"),
+                                url: item.video_url || `https://v1.hidoristream.online/embed/${item.slug || ''}`
                             }
                         ]
                     });
-                    log.textContent += `[OK] Berhasil menarik: ${item.title}\n`;
+                    log.textContent += `[OK] Berhasil: ${item.title}\n`;
                 });
 
-                log.textContent += '\n✓ SELESAI! Video sekarang sesuai dengan Hidoristream.';
+                log.textContent += '\n✓ BERHASIL! Silakan cek halaman utama.';
             } catch (err) {
-                log.textContent += '\n[ERROR] Gagal mengambil data: ' + err.message;
+                log.textContent += '\n[GAGAL] Masalah: ' + err.message;
+                log.textContent += '\nSaran: Pastikan link API Hidoristream masih aktif.';
                 console.error(err);
             } finally {
                 isRunning = false;

@@ -1,61 +1,71 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>BStationX - Watch</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="storage.js"></script>
+    <meta charset="UTF-8">
+    <title>BStationX - Watch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="storage.js"></script>
 
-<style>
-    body{margin:0;background:#000;color:white;font-family:Arial, sans-serif}
-    .top{padding:15px;background:#111;display:flex;justify-content:space-between;align-items:center}
-    .back{color:#ec4899;cursor:pointer;text-decoration:none;font-weight:bold}
-    
-    .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; background: #000; }
-    /* SANDBOX ditambahkan agar iklan Hidoristream tidak tembus */
-    .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-    
-    .container{padding:20px; max-width: 1000px; margin: auto;}
-    .anime-info { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 20px; }
-    .title{font-size:24px; color:#ec4899; margin: 0 0 10px 0;}
-    .genre { color: #aaa; font-size: 14px; margin-bottom: 10px; }
-    .synopsis { font-size: 15px; color: #ccc; line-height: 1.6; background: #111; padding: 15px; border-radius: 8px; max-height: 200px; overflow-y: auto;}
+    <style>
+        body{margin:0;background:#000;color:white;font-family:Arial, sans-serif}
+        .top{padding:15px;background:#111;display:flex;justify-content:space-between;align-items:center}
+        .back{color:#ec4899;cursor:pointer;text-decoration:none;font-weight:bold}
+        
+        /* Player Container Terbaru */
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; background: #000; overflow: hidden; }
+        .video-wrapper iframe { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; 
+            background: url('https://i.gifer.com/ZKZg.gif') center no-repeat; /* Loading Animation */
+        }
+        
+        .container{padding:20px; max-width: 1000px; margin: auto;}
+        .anime-info { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 20px; }
+        .title{font-size:24px; color:#ec4899; margin: 0 0 10px 0;}
+        .synopsis { font-size: 15px; color: #ccc; line-height: 1.6; background: #111; padding: 15px; border-radius: 8px; max-height: 150px; overflow-y: auto;}
 
-    .controls{margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
-    .btn-nav { padding:10px 20px; background:#333; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold;}
-    .btn-download { padding:10px 20px; background:#22c55e; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold; text-decoration: none; display: inline-block;}
-    
-    .episodes-label { font-weight: bold; margin-bottom: 10px; display: block; color: #ec4899;}
-    .episodes{display:grid;grid-template-columns:repeat(auto-fill, minmax(60px, 1fr));gap:10px}
-    .ep{ background:#18181b; padding:12px; text-align:center; cursor:pointer; border-radius:4px; border: 1px solid #333; }
-    .ep.active{background:#ec4899; border-color: #ec4899; font-weight: bold;}
-</style>
+        .controls{margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
+        .btn-nav { padding:12px 24px; background:#333; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold; flex: 1; transition: 0.3s;}
+        .btn-nav:hover { background: #444; border: 1px solid #ec4899; }
+        .btn-download { padding:12px 24px; background:#22c55e; border:none; color:white; border-radius:6px; cursor:pointer; font-weight: bold; text-decoration: none; display: inline-block; text-align: center;}
+        
+        .episodes-label { font-weight: bold; margin-bottom: 15px; display: block; color: #ec4899; text-transform: uppercase; font-size: 14px;}
+        .episodes{display:grid; grid-template-columns:repeat(auto-fill, minmax(55px, 1fr)); gap:10px}
+        .ep{ background:#18181b; padding:12px; text-align:center; cursor:pointer; border-radius:6px; border: 1px solid #333; transition: 0.2s;}
+        .ep.active{background:#ec4899; border-color: #ec4899; font-weight: bold; box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);}
+        .ep:hover { border-color: #ec4899; background: #222; }
+
+        /* Status Tag */
+        .status-tag { font-size: 12px; padding: 5px 10px; background: #ec4899; border-radius: 20px; font-weight: bold; letter-spacing: 1px;}
+    </style>
 </head>
 <body>
 
 <div class="top">
-    <a class="back" href="index.html">← Kembali ke Beranda</a>
-    <div id="statusTag" style="font-size: 12px; padding: 4px 8px; background: #ec4899; border-radius: 4px; font-weight: bold;">ONGOING</div>
+    <a class="back" href="index.html">← Kembali</a>
+    <div class="status-tag" id="statusTag">SUB INDO</div>
 </div>
 
 <div class="video-wrapper">
-    <iframe id="videoPlayer" src="" allowfullscreen sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation"></iframe>
+    <iframe id="videoPlayer" 
+            src="" 
+            allowfullscreen 
+            sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation-by-user-activation">
+    </iframe>
 </div>
 
 <div class="container">
     <div class="anime-info">
-        <h2 class="title" id="title">Memuat...</h2>
-        <div class="genre" id="genres">Genre: Sub Indo</div>
+        <h2 class="title" id="title">Memuat Judul...</h2>
         <div class="synopsis" id="synopsis"></div>
     </div>
 
     <div class="controls">
-        <button class="btn-nav" onclick="prevEp()">◀ Prev</button>
-        <button class="btn-nav" onclick="nextEp()">Next ▶</button>
-        <a id="downloadBtn" class="btn-download" target="_blank">📥 Download Video</a>
+        <button class="btn-nav" onclick="prevEp()">◀ Sebelumnya</button>
+        <button class="btn-nav" onclick="nextEp()">Berikutnya ▶</button>
+        <a id="downloadBtn" class="btn-download" target="_blank">📥 Simpan Video / Resolusi</a>
     </div>
 
-    <span class="episodes-label">Pilih Episode:</span>
+    <span class="episodes-label">Daftar Episode:</span>
     <div class="episodes" id="epList"></div>
 </div>
 
@@ -67,6 +77,7 @@ let epNum = parseInt(params.get('ep')) || 1;
 const db = getDB();
 const anime = db[animeId];
 
+// Jika anime tidak ada, balik ke beranda
 if(!anime) {
     location.href = 'index.html';
 }
@@ -75,26 +86,41 @@ const player = document.getElementById('videoPlayer');
 const downloadBtn = document.getElementById('downloadBtn');
 
 document.getElementById('title').innerText = anime.title;
-document.getElementById('synopsis').innerText = anime.description;
+document.getElementById('synopsis').innerText = anime.description || "Tidak ada deskripsi tersedia.";
 
 function playEpisode(n){
+    // Cari data episode
     const episode = anime.episodes.find(e => e.number == n);
-    if(!episode) return;
+    
+    if(!episode) {
+        alert("Episode ini belum rilis atau link tidak tersedia.");
+        return;
+    }
 
     epNum = n;
-    document.title = `Nonton ${anime.title} Episode ${n}`;
+    document.title = `Nonton ${anime.title} Episode ${n} Sub Indo`;
     
-    // Link video v1.hidoristream masuk ke iframe
-    player.src = episode.video;
-    downloadBtn.href = episode.video; 
+    // Reset player src agar loading muncul kembali
+    player.src = "about:blank";
+    
+    // Gunakan timeout sedikit agar transisi mulus
+    setTimeout(() => {
+        player.src = episode.video;
+        downloadBtn.href = episode.video; 
+    }, 100);
 
     renderEpisodes();
+
+    // Simpan ke History (Fitur Baru: Ingat Episode Terakhir)
+    localStorage.setItem('last_watch_' + animeId, n);
+
     if(window.innerWidth < 768) window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 function renderEpisodes(){
     const epList = document.getElementById('epList');
     epList.innerHTML='';
+    
     anime.episodes.forEach(e => {
         const div = document.createElement('div');
         div.className = `ep ${e.number == epNum ? 'active' : ''}`;
@@ -104,10 +130,18 @@ function renderEpisodes(){
     });
 }
 
-function nextEp(){ if(epNum < anime.episodes.length) playEpisode(epNum + 1); }
-function prevEp(){ if(epNum > 1) playEpisode(epNum - 1); }
+function nextEp(){ 
+    if(epNum < anime.episodes.length) playEpisode(epNum + 1); 
+    else alert("Ini adalah episode terakhir yang tersedia.");
+}
 
+function prevEp(){ 
+    if(epNum > 1) playEpisode(epNum - 1); 
+}
+
+// Inisialisasi saat pertama kali buka
 playEpisode(epNum);
 </script>
+
 </body>
 </html>

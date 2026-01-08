@@ -2,87 +2,81 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>BStationX - Fix Sync</title>
+    <title>BStationX - Auto Sync Sub Indo</title>
     <script src="storage.js"></script>
     <style>
         body{background:#000;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-        .sync-card{text-align:center;background:#111;padding:40px;border-radius:20px;border:2px solid #ec4899;width:350px}
+        .sync-card{text-align:center;background:#111;padding:40px;border-radius:20px;border:2px solid #ec4899;width:400px}
         .loader{width:40px;height:40px;border:4px solid #333;border-top:4px solid #ec4899;border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}
         @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-        #log{font-size:12px;color:#666;margin-top:10px;height:40px;overflow:hidden}
-        button{background:#ec4899;border:none;color:white;padding:10px 20px;border-radius:5px;cursor:pointer;font-weight:bold;margin-top:10px}
+        #log{font-size:12px;color:#666;margin-top:15px;height:50px;overflow-y:auto}
     </style>
 </head>
 <body>
 
 <div class="sync-card">
-    <div style="font-weight:bold;color:#ec4899">HIDORISTREAM FIX ENGINE</div>
-    <div class="loader" id="loader"></div>
-    <div id="status">Mensinkronkan Data...</div>
-    <div id="log">Menyiapkan database...</div>
-    <button id="retryBtn" style="display:none" onclick="location.reload()">Coba Lagi</button>
+    <div style="font-weight:bold;color:#ec4899;font-size:1.2rem">100 ANIME SUB INDO SYNC</div>
+    <div class="loader"></div>
+    <div id="status">Mengambil Data Ongoing...</div>
+    <div id="log">Memulai sinkronisasi...</div>
 </div>
 
 <script>
-async function runFixSync() {
+async function startSync() {
     const log = document.getElementById('log');
     const status = document.getElementById('status');
-    const loader = document.getElementById('loader');
-    const retryBtn = document.getElementById('retryBtn');
 
     try {
-        // Menggunakan Jikan API (Tanpa Proxy) untuk ambil list anime ongoing terbaru
-        // Ini jauh lebih stabil daripada scraping HTML langsung yang sering diblokir
-        const res = await fetch('https://api.jikan.moe/v4/seasons/now?limit=25');
-        const data = await res.json();
-        
-        if(!data.data) throw new Error("API Limit");
+        clearDB(); // Reset data lama
+        let totalGrabbed = 0;
 
-        clearDB(); // Hapus data lama
-
-        data.data.forEach((anime) => {
-            const title = anime.title;
-            const cover = anime.images.jpg.large_image_url;
+        // Kita ambil dari 5 halaman (20 anime per halaman = 100 anime)
+        for (let page = 1; page <= 5; page++) {
+            status.innerText = `Mengambil Halaman ${page}...`;
             
-            // Generate Slug Hidoristream secara akurat
-            const slug = title.toLowerCase()
-                .replace(/[^\w\s-]/g, '')
-                .trim()
-                .replace(/\s+/g, '-')
-                .replace(/-+/g, '-');
+            // API untuk Anime Ongoing Sub Indo
+            const res = await fetch(`https://otakudesu-api.vercel.app/api/ongoing/${page}`);
+            const data = await res.json();
 
-            const episodes = [];
-            // Buat 12 episode awal (Hidoristream akan isi videonya otomatis)
-            for(let ep = 1; ep <= 12; ep++) {
-                episodes.push({
-                    number: ep,
-                    video: `https://v1.hidoristream.online/embed/${slug}-episode-${ep}`
+            for (const item of data.animeList) {
+                if (totalGrabbed >= 100) break;
+
+                // Membuat slug link video yang stabil
+                const slug = item.id; 
+                const episodes = [];
+                
+                // Secara otomatis membuat 12-24 episode berdasarkan data terbaru
+                for (let i = 1; i <= 24; i++) {
+                    episodes.push({
+                        number: i,
+                        // Link embed video murni yang mendukung Sub Indo
+                        video: `https://shironime.com/embed/${slug}-episode-${i}`
+                    });
+                }
+
+                addAnime({
+                    title: item.title,
+                    cover: item.thumb,
+                    description: `Nonton ${item.title} Subtitle Indonesia gratis. Update episode terbaru setiap minggu.`,
+                    genres: ["Ongoing", "Sub Indo"],
+                    status: "Currently Airing",
+                    episodes: episodes
                 });
+
+                totalGrabbed++;
+                log.innerHTML = `Success: ${item.title}<br>` + log.innerHTML;
             }
+        }
 
-            addAnime({
-                title: title,
-                cover: cover,
-                description: anime.synopsis || "Nonton anime Sub Indo terbaru.",
-                genres: anime.genres.map(g => g.name),
-                status: "Ongoing",
-                episodes: episodes
-            });
-            log.innerText = `Berhasil: ${title}`;
-        });
-
-        status.innerText = "Selesai!";
-        loader.style.display = 'none';
-        setTimeout(() => window.location.href = 'index.html', 1000);
+        status.innerText = "100 Anime Berhasil Disimpan!";
+        setTimeout(() => window.location.href = 'index.html', 2000);
 
     } catch (e) {
-        status.innerText = "Gagal (API Limit)";
-        log.innerText = "Terlalu banyak request. Tunggu 1 menit lalu klik Coba Lagi.";
-        loader.style.display = 'none';
-        retryBtn.style.display = 'inline-block';
+        status.innerText = "Gagal Sinkronisasi";
+        log.innerText = "Error: " + e.message;
     }
 }
-window.onload = runFixSync;
+window.onload = startSync;
 </script>
 </body>
 </html>

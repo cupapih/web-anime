@@ -8,131 +8,122 @@
 <style>
   :root { --primary: #ec4899; --bg: #0f0f0f; --card-bg: #18181b; }
   body { margin:0; background: var(--bg); color:#fff; font-family: 'Segoe UI', Arial, sans-serif; }
-  
-  .navbar { 
-    padding: 16px 24px; background: var(--card-bg); 
-    display: flex; justify-content: space-between; align-items: center;
-    position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-  }
-  .logo { color: var(--primary); font-size: 24px; font-weight: bold; letter-spacing: 1px; }
-  
-  /* Filter Genre Styling */
-  .filter-container {
-    padding: 15px 24px; display: flex; gap: 10px; overflow-x: auto;
-    white-space: nowrap; scrollbar-width: none;
-  }
-  .filter-container::-webkit-scrollbar { display: none; }
-  .chip {
-    padding: 6px 16px; background: #27272a; border-radius: 20px;
-    font-size: 13px; cursor: pointer; transition: 0.3s; border: 1px solid transparent;
-  }
-  .chip:hover { border-color: var(--primary); }
-  .chip.active { background: var(--primary); color: #fff; }
-
-  .grid { 
-    padding: 24px; display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; 
-  }
-  
-  .card { 
-    background: var(--card-bg); border-radius: 12px; overflow: hidden;
-    transition: transform 0.3s, box-shadow 0.3s; border: 1px solid #27272a;
-  }
-  .card:hover { 
-    transform: translateY(-8px); 
-    box-shadow: 0 10px 20px rgba(236, 72, 153, 0.2);
-    border-color: var(--primary);
-  }
+  .navbar { padding: 16px 24px; background: var(--card-bg); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+  .logo { color: var(--primary); font-size: 24px; font-weight: bold; }
+  .filter-container { padding: 15px 24px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; }
+  .chip { padding: 6px 16px; background: #27272a; border-radius: 20px; font-size: 13px; cursor: pointer; }
+  .chip.active { background: var(--primary); }
+  .grid { padding: 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }
+  .card { background: var(--card-bg); border-radius: 12px; overflow: hidden; transition: 0.3s; cursor: pointer; }
+  .card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(236,72,153,0.3); }
   .card img { width: 100%; height: 220px; object-fit: cover; }
-  
   .info { padding: 12px; }
-  .title { 
-    font-size: 14px; font-weight: bold; margin-bottom: 4px;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    overflow: hidden; height: 38px;
-  }
-  .genre-label { font-size: 11px; color: var(--primary); font-weight: 500; }
+  .title { font-size: 14px; font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .genre-label { font-size: 11px; color: var(--primary); margin-bottom: 4px; }
 </style>
 </head>
 <body>
 
 <div class="navbar">
   <div class="logo">BStationX</div>
-  <div style="font-size: 12px; color: #888;" id="stats">0 Anime</div>
+  <div id="stats">0 Anime</div>
 </div>
 
 <div class="filter-container" id="filterList">
-  <div class="chip active" onclick="filterGenre('All', this)">Semua</div>
+  <div class="chip active" data-genre="All">Semua</div>
 </div>
 
-<div class="grid" id="list"></div>
+<div class="grid" id="list">
+  <div style="grid-column:1/-1;text-align:center;padding:50px">Loading...</div>
+</div>
 
 <script>
-const listElement = document.getElementById('list');
-const filterList = document.getElementById('filterList');
+let allData = [];
+let activeFilter = 'All';
 
-function renderUI(filter = 'All') {
-  // Mengambil data dari KV Storage
-  const data = getDB();
+async function loadData() {
+  const list = document.getElementById('list');
+  list.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px">Loading...</div>';
   
-  if(!data || data.length === 0){
-    listElement.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 50px; color: #888;">
-        <p>Database kosong.</p>
-        <button onclick="location.href='sync.html'" style="background:#ec4899; color:#fff; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">Jalankan Scraper</button>
-      </div>`;
-    return;
+  try {
+    allData = await getDB();
+    
+    if (!allData || allData.length === 0) {
+      list.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px">Database kosong. Jalankan scraper!</div>';
+      return;
+    }
+    
+    document.getElementById('stats').innerText = `${allData.length} Anime`;
+    
+    // Load genres
+    loadGenres();
+    
+    // Render
+    renderList();
+    
+  } catch(e) {
+    list.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:50px;color:red">Error: ${e.message}</div>`;
   }
-
-  document.getElementById('stats').innerText = `${data.length} Anime`;
-
-  // Render Card
-  let html = '';
-  data.forEach((anime) => {
-    // Logika Filter
-    if(filter !== 'All' && !anime.genres.includes(filter)) return;
-
-    html += `
-      <div class="card" onclick="location.href='player.html?slug=${anime.slug}&ep=1'">
-        <img src="${anime.cover}" alt="${anime.title}" loading="lazy">
-        <div class="info">
-          <div class="genre-label">${anime.genres[0] || 'Anime'}</div>
-          <div class="title">${anime.title}</div>
-        </div>
-      </div>`;
-  });
-  listElement.innerHTML = html;
 }
 
-// Inisialisasi Filter Genre
-function loadFilters() {
-  const genres = getAllGenres();
-  genres.forEach(genre => {
+function loadGenres() {
+  const genres = new Set();
+  allData.forEach(anime => {
+    if (anime.genres) {
+      anime.genres.forEach(g => genres.add(g));
+    }
+  });
+  
+  const container = document.getElementById('filterList');
+  // Hapus semua chip kecuali "Semua"
+  container.innerHTML = '<div class="chip active" data-genre="All">Semua</div>';
+  
+  Array.from(genres).sort().forEach(genre => {
     const chip = document.createElement('div');
     chip.className = 'chip';
+    chip.dataset.genre = genre;
     chip.innerText = genre;
-    chip.onclick = (e) => filterGenre(genre, chip);
-    filterList.appendChild(chip);
+    chip.onclick = () => filterGenre(genre, chip);
+    container.appendChild(chip);
   });
 }
 
 function filterGenre(genre, element) {
-  // Reset active state
+  activeFilter = genre;
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   element.classList.add('active');
-  
-  // Render ulang list
-  renderUI(genre);
+  renderList();
 }
 
-// Jalankan saat load
-loadFilters();
-renderUI();
+function renderList() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  
+  const filtered = activeFilter === 'All' 
+    ? allData 
+    : allData.filter(a => a.genres && a.genres.includes(activeFilter));
+  
+  filtered.forEach((anime, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.onclick = () => location.href = `player.html?slug=${anime.slug}&ep=1`;
+    
+    const imgSrc = anime.cover || 'https://via.placeholder.com/150x220?text=No+Image';
+    const genreText = anime.genres ? anime.genres[0] : 'Anime';
+    
+    card.innerHTML = `
+      <img src="${imgSrc}" alt="${anime.title}" onerror="this.src='https://via.placeholder.com/150x220?text=No+Image'">
+      <div class="info">
+        <div class="genre-label">${genreText}</div>
+        <div class="title">${anime.title}</div>
+      </div>
+    `;
+    
+    list.appendChild(card);
+  });
+}
 
-// Pantau perubahan database (jika sinkronisasi dilakukan di tab lain)
-window.addEventListener('storage', () => {
-  renderUI();
-});
+loadData();
 </script>
 
 </body>
